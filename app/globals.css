@@ -2,25 +2,205 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #18181b;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+/* ============================================================
+   MODERN BUILDER INPUT
+============================================================ */
+
+.field-shell {
+  width: 100%;
+  max-width: 560px;
+  min-height: 54px;
+
+  border: 1px solid #e4e4e7;
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.field-shell:hover {
+  border-color: #d4d4d8;
+}
+
+.field-shell:focus-within {
+  border-color: #c4c4c9;
+
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* ============================================================
+   INPUT
+============================================================ */
+
+.builder-input {
+  display: block;
+
+  width: 100%;
+  min-height: 52px;
+
+  margin: 0;
+  padding: 14px 16px;
+
+  border: 0 !important;
+  outline: none !important;
+
+  border-radius: 13px;
+
+  background: transparent !important;
+
+  color: #18181b;
+
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+
+  box-shadow: none !important;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  -webkit-tap-highlight-color: transparent;
+}
+
+.builder-input::placeholder {
+  color: #a1a1aa;
+  opacity: 1;
+}
+
+.builder-input:hover {
+  background: #fafafa !important;
+}
+
+.builder-input:focus,
+.builder-input:focus-visible,
+.builder-input:active {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+}
+
+textarea.builder-input {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* ============================================================
+   ASSISTANT INPUT
+============================================================ */
+
+.assistant-input {
+  width: 100%;
+  height: 40px;
+
+  padding: 0 12px;
+
+  border: 0 !important;
+  outline: none !important;
+
+  background: transparent !important;
+
+  color: #18181b;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  box-shadow: none !important;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  -webkit-tap-highlight-color: transparent;
+}
+
+.assistant-input::placeholder {
+  color: #a1a1aa;
+}
+
+.assistant-input:hover,
+.assistant-input:focus,
+.assistant-input:focus-visible,
+.assistant-input:active {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   REMOVE BROWSER FOCUS STYLING
+============================================================ */
+
+input,
+textarea,
+button,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:focus,
+textarea:focus,
+button:focus,
+select:focus {
+  outline: none;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* ============================================================
+   SCROLLBARS
+============================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* ============================================================
+   SELECTION
+============================================================ */
+
+::selection {
+  background: rgba(79, 70, 229, 0.15);
 }
