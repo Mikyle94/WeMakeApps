@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -9,6 +11,9 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type Device = "ios" | "android";
 
@@ -45,6 +50,31 @@ type AppService = {
   description: string;
   price: string;
   enabled: boolean;
+};
+
+type SavedPageData = {
+  id?: string;
+  slug?: string;
+  title?: string;
+  type?: string;
+  is_enabled?: boolean;
+  sections?: Record<string, unknown> | null;
+};
+
+type SavedServiceData = {
+  id?: string;
+  name?: string;
+  description?: string;
+  price?: string | number | null;
+  is_enabled?: boolean;
+};
+
+type SavedMediaData = {
+  id?: string;
+  file_name?: string;
+  alt_text?: string;
+  file_path?: string;
+  type?: string;
 };
 
 type GalleryItem = {
@@ -190,6 +220,219 @@ const navigationItems = [
   },
 ];
 
+const previewMoments = [
+  {
+    title: "Tap-ready home screen",
+    detail: "Quick actions, animated cards and sticky navigation feel like a real app.",
+  },
+  {
+    title: "Switch device instantly",
+    detail: "Jump between iOS and Android framing to compare visual polish.",
+  },
+  {
+    title: "Explore real interactions",
+    detail: "Tap services, gallery and contact blocks to see contextual responses.",
+  },
+];
+
+const guidedPreviewStops = [
+  {
+    label: "Home",
+    target: "home",
+    detail: "Hero and quick actions",
+  },
+  {
+    label: "Services",
+    target: "services",
+    detail: "Expandable service cards",
+  },
+  {
+    label: "Gallery",
+    target: "gallery",
+    detail: "Tap to spotlight images",
+  },
+  {
+    label: "Contact",
+    target: "contact",
+    detail: "Direct action tiles",
+  },
+  {
+    label: "About",
+    target: "about",
+    detail: "Business story section",
+  },
+] as const;
+
+const industryPreviewPresets = [
+  {
+    id: "live",
+    label: "Live data",
+    businessName: "",
+    description: "",
+    primaryColor: "",
+    phone: "",
+    whatsapp: "",
+    email: "",
+    address: "",
+    cta: "I want this app for my business",
+    services: [] as AppService[],
+    gallery: [] as GalleryItem[],
+  },
+  {
+    id: "plumber",
+    label: "Plumber",
+    businessName: "FlowFix Plumbing",
+    description: "24/7 emergency plumbing, leak detection and geyser repairs across your area.",
+    primaryColor: "#0EA5E9",
+    phone: "+27 82 410 7790",
+    whatsapp: "+27 82 410 7790",
+    email: "hello@flowfix.co.za",
+    address: "18 Cedar Road, Fourways",
+    cta: "Get my plumbing app",
+    services: [
+      {
+        id: "preset-plumber-1",
+        name: "Emergency callout",
+        description: "Rapid response for leaks and burst pipes.",
+        price: "R450",
+        enabled: true,
+      },
+      {
+        id: "preset-plumber-2",
+        name: "Geyser repair",
+        description: "Repair and replacement with warranty.",
+        price: "R950",
+        enabled: true,
+      },
+      {
+        id: "preset-plumber-3",
+        name: "Leak detection",
+        description: "Non-invasive checks for hidden water loss.",
+        price: "R700",
+        enabled: true,
+      },
+    ],
+    gallery: [
+      {
+        id: "preset-plumber-g1",
+        title: "Bathroom upgrade",
+        description: "Completed project",
+        imageUrl: "https://picsum.photos/seed/wma-plumber-1/600/600",
+        enabled: true,
+      },
+      {
+        id: "preset-plumber-g2",
+        title: "Kitchen install",
+        description: "Completed project",
+        imageUrl: "https://picsum.photos/seed/wma-plumber-2/600/600",
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "salon",
+    label: "Salon",
+    businessName: "Luxe Hair Studio",
+    description: "Premium cuts, colour and styling with easy bookings and instant WhatsApp support.",
+    primaryColor: "#EC4899",
+    phone: "+27 82 111 0032",
+    whatsapp: "+27 82 111 0032",
+    email: "book@luxehair.co.za",
+    address: "44 Main Street, Sandton",
+    cta: "Get my salon app",
+    services: [
+      {
+        id: "preset-salon-1",
+        name: "Cut and blow wave",
+        description: "Tailored style with signature finish.",
+        price: "R380",
+        enabled: true,
+      },
+      {
+        id: "preset-salon-2",
+        name: "Colour and treatment",
+        description: "Colour refresh and deep repair treatment.",
+        price: "R850",
+        enabled: true,
+      },
+      {
+        id: "preset-salon-3",
+        name: "Bridal styling",
+        description: "Consultation plus full event styling.",
+        price: "R1200",
+        enabled: true,
+      },
+    ],
+    gallery: [
+      {
+        id: "preset-salon-g1",
+        title: "Blonde transformation",
+        description: "Featured work",
+        imageUrl: "https://picsum.photos/seed/wma-salon-1/600/600",
+        enabled: true,
+      },
+      {
+        id: "preset-salon-g2",
+        title: "Bridal style",
+        description: "Featured work",
+        imageUrl: "https://picsum.photos/seed/wma-salon-2/600/600",
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "restaurant",
+    label: "Restaurant",
+    businessName: "Urban Grill House",
+    description: "Daily specials, table booking, menu highlights and direct ordering from your phone.",
+    primaryColor: "#F97316",
+    phone: "+27 11 411 8800",
+    whatsapp: "+27 82 909 1188",
+    email: "hello@urbangrill.co.za",
+    address: "9 Rivonia Boulevard, Johannesburg",
+    cta: "Get my restaurant app",
+    services: [
+      {
+        id: "preset-restaurant-1",
+        name: "Table booking",
+        description: "Reserve your table in seconds.",
+        price: "Instant",
+        enabled: true,
+      },
+      {
+        id: "preset-restaurant-2",
+        name: "Weekly specials",
+        description: "Fresh updates and chef picks.",
+        price: "Updated daily",
+        enabled: true,
+      },
+      {
+        id: "preset-restaurant-3",
+        name: "Delivery orders",
+        description: "Order directly from the app.",
+        price: "Open now",
+        enabled: true,
+      },
+    ],
+    gallery: [
+      {
+        id: "preset-restaurant-g1",
+        title: "Signature steak",
+        description: "Menu highlight",
+        imageUrl: "https://picsum.photos/seed/wma-restaurant-1/600/600",
+        enabled: true,
+      },
+      {
+        id: "preset-restaurant-g2",
+        title: "Dining space",
+        description: "Restaurant interior",
+        imageUrl: "https://picsum.photos/seed/wma-restaurant-2/600/600",
+        enabled: true,
+      },
+    ],
+  },
+];
+
 /* ============================================================
    PROGRESS
 ============================================================ */
@@ -232,6 +475,17 @@ function isContactComplete(app: AppConfig) {
 ============================================================ */
 
 export default function BuilderPage() {
+
+  const searchParams = useSearchParams();
+
+  const loadedAppIdRef = useRef<string | null>(null);
+
+  const [isLoadingSavedApp, setIsLoadingSavedApp] =
+    useState(false);
+
+  const [loadAppError, setLoadAppError] =
+    useState<string | null>(null);
+
   const [app, setApp] =
     useState<AppConfig>(initialApp);
 
@@ -262,6 +516,64 @@ export default function BuilderPage() {
   const [previewOpen, setPreviewOpen] =
     useState(false);
 
+  const [currentUserEmail, setCurrentUserEmail] =
+    useState<string | null>(null);
+
+  const [isSigningOut, setIsSigningOut] =
+    useState(false);
+
+  const [savedAppId, setSavedAppId] =
+    useState<string | null>(() => {
+      if (typeof window === "undefined") {
+        return null;
+      }
+
+      const url = new URL(window.location.href);
+      const appIdFromUrl =
+        url.searchParams.get("appId");
+
+      if (appIdFromUrl) {
+        return appIdFromUrl;
+      }
+
+      return window.localStorage.getItem(
+        "wemakeapps:lastAppId",
+      );
+    });
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [saveError, setSaveError] =
+    useState<string | null>(null);
+
+  const [saveSuccess, setSaveSuccess] =
+    useState<string | null>(null);
+
+  const [authOpen, setAuthOpen] =
+    useState(false);
+
+  const [authMode, setAuthMode] =
+    useState<"signup" | "signin" | "check_email">("signup");
+
+  const [authEmail, setAuthEmail] =
+    useState("");
+
+  const [authPassword, setAuthPassword] =
+    useState("");
+
+  const [authConfirmPassword, setAuthConfirmPassword] =
+    useState("");
+
+  const [authLoading, setAuthLoading] =
+    useState(false);
+
+  const [authError, setAuthError] =
+    useState<string | null>(null);
+
+  const [pendingSaveAfterAuth, setPendingSaveAfterAuth] =
+    useState(false);
+
   const nameInputRef =
     useRef<HTMLInputElement>(null);
 
@@ -272,6 +584,751 @@ export default function BuilderPage() {
     useRef<HTMLInputElement>(null);
 
   const progress = getProgress(app);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCurrentUser() {
+      try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.auth.getUser();
+
+        if (error) {
+          throw error;
+        }
+
+        if (mounted) {
+          setCurrentUserEmail(data.user?.email ?? null);
+        }
+      } catch (error) {
+        console.error("[BUILDER][SESSION] Could not read session", error);
+        if (mounted) {
+          setCurrentUserEmail(null);
+        }
+      }
+    }
+
+    void loadCurrentUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleBuilderSignOut() {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
+      }
+
+      setCurrentUserEmail(null);
+      window.location.replace("/");
+    } catch (error) {
+      console.error("[BUILDER][SIGNOUT] Failed", error);
+      setIsSigningOut(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!saveSuccess) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSaveSuccess(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timer);
+  }, [saveSuccess]);
+
+  function rememberSavedAppId(
+    appId: string,
+  ) {
+    setSavedAppId(appId);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      "wemakeapps:lastAppId",
+      appId,
+    );
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("appId", appId);
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}`,
+    );
+  }
+
+  function buildSavePayload() {
+    return {
+      appId: savedAppId,
+
+      app: {
+        name:
+          app.business.name.trim() ||
+          "My App",
+        primaryColor:
+          app.primaryColor,
+      },
+
+      business: {
+        name: app.business.name.trim(),
+        description:
+          app.business.description.trim(),
+        phone: app.business.phone.trim(),
+        whatsapp:
+          app.business.whatsapp.trim(),
+        email: app.business.email.trim(),
+        address:
+          app.business.address.trim(),
+      },
+
+      contactSettings,
+
+      pages,
+      services,
+      gallery,
+    };
+  }
+
+  function getSupabaseClient() {
+    try {
+      return createBrowserSupabaseClient();
+    } catch {
+      throw new Error(
+        "Save and sign in are unavailable until Supabase is configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+      );
+    }
+  }
+
+  async function persistApp(
+    accessToken: string,
+  ) {
+    const payload = buildSavePayload();
+
+    console.log("[BUILDER][SAVE] Request", {
+      appId: payload.appId,
+      businessName: payload.business.name,
+      hasDescription: Boolean(payload.business.description),
+      contact: {
+        phone: Boolean(payload.business.phone),
+        whatsapp: Boolean(payload.business.whatsapp),
+        email: Boolean(payload.business.email),
+        address: Boolean(payload.business.address),
+      },
+      pages: payload.pages.length,
+      services: payload.services.length,
+      gallery: payload.gallery.length,
+    });
+
+    const response = await fetch(
+      "/api/apps/save",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    const body = await response
+      .json()
+      .catch(() => null);
+
+    console.log("[BUILDER][SAVE] Response", {
+      appId: payload.appId,
+      status: response.status,
+      ok: response.ok,
+      body,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        body?.error ||
+          "Could not save your app right now.",
+      );
+    }
+
+    return body as {
+      appId: string;
+      message: string;
+    };
+  }
+
+  function isAuthSessionMissingError(
+    error?: { message?: string; name?: string } | null,
+  ) {
+    return Boolean(
+      error &&
+        (error.name === "AuthSessionMissingError" ||
+          error.message?.toLowerCase().includes("auth session missing")),
+    );
+  }
+
+  async function saveAppFlow(accessToken?: string) {
+    if (isSaving) {
+      return;
+    }
+
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    if (!isBusinessComplete(app)) {
+      setSaveError(
+        "Add a business name and description before saving.",
+      );
+      selectSection("business");
+      return;
+    }
+
+    if (!isContactComplete(app)) {
+      setSaveError(
+        "Add at least one contact method before saving.",
+      );
+      selectSection("contact");
+      return;
+    }
+
+    let token = accessToken;
+
+    if (!token) {
+      let supabase;
+
+      try {
+        supabase = getSupabaseClient();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Save is currently unavailable.";
+
+        setSaveError(message);
+        return;
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        if (isAuthSessionMissingError(userError)) {
+          setPendingSaveAfterAuth(true);
+          setAuthMode("signup");
+          setAuthOpen(true);
+          setAuthError(null);
+          return;
+        }
+
+        setSaveError(
+          `Supabase authentication error: ${userError.message}`,
+        );
+        return;
+      }
+
+      if (!user) {
+        setPendingSaveAfterAuth(true);
+        setAuthMode("signup");
+        setAuthOpen(true);
+        setAuthError(null);
+        return;
+      }
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        setSaveError(
+          `Could not verify your session: ${sessionError.message}`,
+        );
+        return;
+      }
+
+      token = session?.access_token;
+
+      if (!token) {
+        setPendingSaveAfterAuth(true);
+        setAuthMode("signin");
+        setAuthOpen(true);
+        setSaveError(
+          "Please sign in again to save your app.",
+        );
+        return;
+      }
+    }
+
+    setIsSaving(true);
+
+    try {
+      const result = await persistApp(token);
+
+      rememberSavedAppId(result.appId);
+      setSaveSuccess("Your app has been saved.");
+      setPendingSaveAfterAuth(false);
+      setAuthOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not save your app right now.";
+
+      setSaveError(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function submitAuth() {
+    if (authLoading) {
+      return;
+    }
+
+    setAuthError(null);
+
+    const email = authEmail.trim();
+    const password = authPassword;
+
+    if (!email) {
+      setAuthError("Enter your email address.");
+      return;
+    }
+
+    if (!password.trim()) {
+      setAuthError("Enter your password.");
+      return;
+    }
+
+    if (authMode === "signup") {
+      if (password.length < 6) {
+        setAuthError(
+          "Use at least 6 characters for your password.",
+        );
+        return;
+      }
+
+      if (password !== authConfirmPassword) {
+        setAuthError("Your passwords do not match.");
+        return;
+      }
+    }
+
+    let supabase;
+
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Authentication is currently unavailable.";
+
+      setAuthError(message);
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      if (authMode === "signup") {
+        const { data, error } =
+          await supabase.auth.signUp({
+            email,
+            password,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        // Supabase can return an existing user with no session when
+        // email confirmation is enabled. Detect that case and send
+        // the user to the normal sign-in flow instead of pretending
+        // a new account was created.
+        if (
+          data.user &&
+          data.user.identities &&
+          data.user.identities.length === 0
+        ) {
+          setAuthMode("signin");
+          setAuthPassword("");
+          setAuthConfirmPassword("");
+          setAuthError(
+            "An account with this email already exists. Sign in to continue saving your app.",
+          );
+          return;
+        }
+
+        if (data.session?.access_token) {
+          setAuthPassword("");
+          setAuthConfirmPassword("");
+          setAuthOpen(false);
+
+          if (pendingSaveAfterAuth) {
+            await saveAppFlow(data.session.access_token);
+          }
+
+          return;
+        }
+
+        // No session means Supabase requires email confirmation.
+        setAuthPassword("");
+        setAuthConfirmPassword("");
+        setAuthMode("check_email");
+        setAuthError(null);
+        return;
+      }
+
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const session = data.session;
+
+      if (!session?.access_token) {
+        throw new Error(
+          "Sign in succeeded, but no active session was returned. Please try again.",
+        );
+      }
+
+      setAuthPassword("");
+      setAuthConfirmPassword("");
+      setAuthOpen(false);
+
+      if (pendingSaveAfterAuth) {
+        await saveAppFlow(session.access_token);
+      }
+    } catch (error) {
+      const rawMessage =
+        error instanceof Error
+          ? error.message
+          : "Authentication failed. Please try again.";
+
+      const message =
+        rawMessage.toLowerCase().includes("invalid login credentials")
+          ? "Incorrect email or password."
+          : rawMessage;
+
+      setAuthError(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+ const loadSavedApp = useCallback(async function loadSavedApp(appId: string) {
+  if (loadedAppIdRef.current === appId) {
+    return;
+  }
+
+  loadedAppIdRef.current = appId;
+  setIsLoadingSavedApp(true);
+  setLoadAppError(null);
+  setSaveError(null);
+
+  try {
+    const supabase = getSupabaseClient();
+
+    // Get the currently signed-in user's session.
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      throw new Error(
+        `Could not verify your session: ${sessionError.message}`,
+      );
+    }
+
+    if (!session?.access_token) {
+      throw new Error(
+        "Your session has expired. Please sign in again.",
+      );
+    }
+
+    // Send the Supabase access token to our server API.
+    const loadUrl = `/api/apps/load?appId=${encodeURIComponent(appId)}`;
+
+    console.log("[BUILDER][LOAD] Request", {
+      appId,
+      userId: session.user?.id ?? null,
+      hasSession: Boolean(session.access_token),
+      url: loadUrl,
+    });
+
+    const response = await fetch(loadUrl, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    const result = await response.json().catch(() => null);
+
+    console.log("[BUILDER][LOAD] Response", {
+      appId,
+      status: response.status,
+      ok: response.ok,
+      result,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        result?.error ||
+          "Could not load your saved app.",
+      );
+    }
+
+    const savedApp = result?.app;
+    const business = result?.business;
+
+    const savedPages = Array.isArray(result?.pages)
+      ? (result.pages as SavedPageData[])
+      : [];
+
+    const savedServices = Array.isArray(result?.services)
+      ? (result.services as SavedServiceData[])
+      : [];
+
+    const savedMedia = Array.isArray(result?.media)
+      ? (result.media as SavedMediaData[])
+      : [];
+
+    if (!savedApp || !business) {
+      throw new Error(
+        "The saved app data is incomplete.",
+      );
+    }
+
+    const theme =
+      savedApp.theme &&
+      typeof savedApp.theme === "object"
+        ? savedApp.theme
+        : {};
+
+    const settings =
+      savedApp.settings &&
+      typeof savedApp.settings === "object"
+        ? savedApp.settings
+        : {};
+
+    const savedContact =
+      settings.contact &&
+      typeof settings.contact === "object"
+        ? settings.contact
+        : {};
+
+    const openingHours =
+      business.opening_hours &&
+      typeof business.opening_hours === "object"
+        ? business.opening_hours
+        : {};
+
+    const savedHours =
+      typeof openingHours.display === "string"
+        ? openingHours.display
+        : typeof savedContact.hours === "string"
+          ? savedContact.hours
+          : initialContactSettings.hours;
+
+    setApp((current) => ({
+      ...current,
+
+      business: {
+        ...current.business,
+        name: business.name ?? "",
+        description: business.description ?? "",
+        phone: business.phone ?? "",
+        whatsapp: business.whatsapp ?? "",
+        email: business.email ?? "",
+        address: business.address_line_1 ?? "",
+      },
+
+      primaryColor:
+        typeof theme.primaryColor === "string"
+          ? theme.primaryColor
+          : current.primaryColor,
+    }));
+
+    setContactSettings({
+      showPhone:
+        typeof savedContact.showPhone === "boolean"
+          ? savedContact.showPhone
+          : Boolean(business.phone),
+
+      showWhatsapp:
+        typeof savedContact.showWhatsapp === "boolean"
+          ? savedContact.showWhatsapp
+          : Boolean(business.whatsapp),
+
+      showEmail:
+        typeof savedContact.showEmail === "boolean"
+          ? savedContact.showEmail
+          : Boolean(business.email),
+
+      showAddress:
+        typeof savedContact.showAddress === "boolean"
+          ? savedContact.showAddress
+          : Boolean(business.address_line_1),
+
+      showHours:
+        typeof savedContact.showHours === "boolean"
+          ? savedContact.showHours
+          : Boolean(openingHours.display),
+
+      hours: savedHours,
+    });
+
+    setPages(
+      savedPages.map((page: SavedPageData, index: number) => {
+        const sections =
+          page.sections &&
+          typeof page.sections === "object"
+            ? (page.sections as Record<string, unknown>)
+            : {};
+
+        return {
+          id: page.slug || page.id || `page-${index}`,
+          name: page.title || "Page",
+          description:
+            typeof sections.description === "string"
+              ? sections.description
+              : "",
+          icon:
+            typeof sections.icon === "string"
+              ? sections.icon
+              : "□",
+          enabled:
+            typeof page.is_enabled === "boolean"
+              ? page.is_enabled
+              : true,
+          system:
+            typeof sections.system === "boolean"
+              ? sections.system
+              : page.type === "system",
+        };
+      }),
+    );
+
+    setServices(
+      savedServices.map((service: SavedServiceData, index: number) => ({
+        id:
+          service.id ||
+          `service-${index}`,
+        name:
+          service.name || "",
+        description:
+          service.description || "",
+        price:
+          service.price === null ||
+          service.price === undefined
+            ? ""
+            : String(service.price),
+        enabled:
+          typeof service.is_enabled === "boolean"
+            ? service.is_enabled
+            : true,
+      })),
+    );
+
+    setGallery(
+      savedMedia
+        .filter(
+          (media: SavedMediaData) =>
+            media.type === "gallery" ||
+            media.type === "service" ||
+            media.type === "other",
+        )
+        .map((media: SavedMediaData, index: number) => ({
+          id:
+            media.id ||
+            `gallery-${index}`,
+          title:
+            media.file_name || "",
+          description:
+            media.alt_text || "",
+          imageUrl:
+            media.file_path || "",
+          enabled: true,
+        })),
+    );
+
+    // Remember the loaded app ID.
+    setSavedAppId(savedApp.id);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "wemakeapps:lastAppId",
+        savedApp.id,
+      );
+    }
+
+    setLoadAppError(null);
+
+    console.log("[BUILDER][LOAD] Applied saved app to builder", {
+      appId: savedApp.id,
+      businessName: business.name,
+      pages: savedPages.length,
+      services: savedServices.length,
+      media: savedMedia.length,
+    });
+  } catch (error) {
+    console.error(
+      "Load saved app error:",
+      error,
+    );
+
+    setLoadAppError(
+      error instanceof Error
+        ? error.message
+        : "Could not load your saved app.",
+    );
+
+    // Allow Try Again to work.
+    loadedAppIdRef.current = null;
+  } finally {
+    setIsLoadingSavedApp(false);
+  }
+}, []);
+
+  useEffect(() => {
+    const appId = searchParams.get("appId");
+
+    if (!appId) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void loadSavedApp(appId);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadSavedApp, searchParams]);
 
   function updateBusiness(
     field: keyof Business,
@@ -321,15 +1378,55 @@ export default function BuilderPage() {
   return (
     <main className="min-h-screen bg-zinc-100 text-zinc-950">
 
+      {isLoadingSavedApp && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/75 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-7 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-950">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            </div>
+            <h2 className="mt-5 text-base font-bold text-zinc-950">
+              Loading your app
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
+              Restoring your saved business, pages, services and gallery.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {loadAppError && !isLoadingSavedApp && (
+        <div className="fixed left-1/2 top-5 z-[110] w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-2xl border border-red-200 bg-white px-5 py-4 shadow-xl">
+          <p className="text-sm font-semibold text-red-700">
+            Could not load your saved app
+          </p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            {loadAppError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const appId = searchParams.get("appId");
+              if (appId) {
+                loadedAppIdRef.current = null;
+                void loadSavedApp(appId);
+              }
+            }}
+            className="mt-3 rounded-lg bg-zinc-950 px-3 py-2 text-xs font-semibold text-white"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {/* ======================================================
           HEADER
       ======================================================= */}
 
-      <header className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-5">
+      <header className="relative flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-5">
 
         <div className="flex items-center gap-8">
 
-          <a
+          <Link
             href="/"
             className="text-lg font-bold tracking-tight"
           >
@@ -340,7 +1437,7 @@ export default function BuilderPage() {
             </span>
 
             <span>Apps</span>
-          </a>
+          </Link>
 
           <div className="hidden h-6 w-px bg-zinc-200 sm:block" />
 
@@ -369,14 +1466,55 @@ export default function BuilderPage() {
             Preview
           </button>
 
+          {currentUserEmail && (
+            <>
+              <button
+                type="button"
+                onClick={() => window.location.assign("/dashboard")}
+                className="hidden rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 sm:block"
+              >
+                Dashboard
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void handleBuilderSignOut();
+                }}
+                disabled={isSigningOut}
+                className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSigningOut ? "Signing out..." : "Sign out"}
+              </button>
+            </>
+          )}
+
           <button
             type="button"
-            className="rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
+            onClick={() => {
+              void saveAppFlow();
+            }}
+            disabled={isSaving}
+            className="rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Save App
+            {isSaving ? "Saving..." : "Save App"}
           </button>
 
         </div>
+
+        {(saveError || saveSuccess) && (
+          <div className="absolute right-5 top-[68px] z-20 max-w-xs rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[11px] shadow-sm">
+            <p
+              className={
+                saveError
+                  ? "font-medium text-red-600"
+                  : "font-medium text-emerald-600"
+              }
+            >
+              {saveError || saveSuccess}
+            </p>
+          </div>
+        )}
 
       </header>
 
@@ -804,6 +1942,30 @@ export default function BuilderPage() {
         />
       )}
 
+      <AuthPromptModal
+        open={authOpen}
+        mode={authMode}
+        setMode={setAuthMode}
+        email={authEmail}
+        setEmail={setAuthEmail}
+        password={authPassword}
+        setPassword={setAuthPassword}
+        confirmPassword={authConfirmPassword}
+        setConfirmPassword={setAuthConfirmPassword}
+        loading={authLoading}
+        error={authError}
+        onClearError={() => setAuthError(null)}
+        onSubmit={() => {
+          void submitAuth();
+        }}
+        onClose={() => {
+          setAuthOpen(false);
+          setAuthError(null);
+          setAuthPassword("");
+          setAuthConfirmPassword("");
+        }}
+      />
+
       {/* ======================================================
           ASSISTANT
       ======================================================= */}
@@ -815,6 +1977,288 @@ export default function BuilderPage() {
       />
 
     </main>
+  );
+}
+
+function AuthPromptModal({
+  open,
+  mode,
+  setMode,
+  email,
+  setEmail,
+  password,
+  setPassword,
+  confirmPassword,
+  setConfirmPassword,
+  loading,
+  error,
+  onClearError,
+  onSubmit,
+  onClose,
+}: {
+  open: boolean;
+  mode: "signup" | "signin" | "check_email";
+  setMode: (
+    value: "signup" | "signin" | "check_email",
+  ) => void;
+  email: string;
+  setEmail: (value: string) => void;
+  password: string;
+  setPassword: (value: string) => void;
+  confirmPassword: string;
+  setConfirmPassword: (value: string) => void;
+  loading: boolean;
+  error: string | null;
+  onClearError: () => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  const emailInputRef =
+    useRef<HTMLInputElement>(null);
+  const passwordInputRef =
+    useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (mode === "signup") {
+      emailInputRef.current?.focus();
+      return;
+    }
+
+    if (mode === "signin") {
+      emailInputRef.current?.focus();
+    }
+  }, [open, mode]);
+
+  if (!open) {
+    return null;
+  }
+
+  const isSignUp = mode === "signup";
+  const isCheckEmail = mode === "check_email";
+
+  if (isCheckEmail) {
+    return (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-zinc-950/45 px-4">
+        <div className="w-full max-w-md overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.25)]">
+          <div className="flex items-start justify-between border-b border-zinc-100 px-6 py-5">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-600">
+                WeMakeApps
+              </p>
+
+              <h3 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">
+                Check your email
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-4 flex h-8 w-8 items-center justify-center rounded-lg text-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+              aria-label="Close auth dialog"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="space-y-5 px-6 py-5">
+            <div className="space-y-2">
+              <p className="text-sm leading-6 text-zinc-600">
+                We&apos;ve created your account.
+              </p>
+
+              <p className="text-sm leading-6 text-zinc-600">
+                If email confirmation is enabled, we sent a confirmation link to:
+              </p>
+
+              <p className="break-all rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-900">
+                {email}
+              </p>
+            </div>
+
+            <p className="text-sm leading-6 text-zinc-500">
+              Check your inbox and spam folder, then return here to finish saving your app.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode("signin");
+                setPassword("");
+                onClearError();
+              }}
+              disabled={loading}
+              className="h-11 w-full rounded-xl bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {loading ? "Please wait..." : "I've confirmed my email — Sign in"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode("signup");
+                setEmail("");
+                setPassword("");
+                setConfirmPassword("");
+                onClearError();
+              }}
+              className="w-full text-center text-sm font-semibold text-zinc-700 underline-offset-2 hover:underline"
+            >
+              Use a different email
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-zinc-950/45 px-4">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.25)]">
+        <div className="flex items-start justify-between border-b border-zinc-100 px-6 py-5">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-600">
+              WeMakeApps
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">
+              {loading && mode === "signin"
+                ? "Saving your app..."
+                : "Save your app"}
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
+              {isSignUp
+                ? "Create a free account to save your progress and come back anytime."
+                : "Sign in to continue saving your progress."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-4 flex h-8 w-8 items-center justify-center rounded-lg text-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+            aria-label="Close auth dialog"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-zinc-800">
+              Email
+            </label>
+            <input
+              ref={emailInputRef}
+              type="email"
+              value={email}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
+              placeholder="you@business.com"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-zinc-800">
+              Password
+            </label>
+            <input
+              ref={passwordInputRef}
+              type="password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
+              placeholder={isSignUp ? "At least 6 characters" : "Enter your password"}
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
+            />
+          </div>
+
+          {isSignUp && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-800">
+                Confirm password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
+                placeholder="Repeat your password"
+                className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
+              />
+            </div>
+          )}
+
+          {error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={loading}
+            className="h-11 w-full rounded-xl bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {loading
+              ? "Please wait..."
+              : isSignUp
+                ? "Create account"
+                : "Sign in"}
+          </button>
+
+          <div className="text-center text-xs text-zinc-500">
+            {isSignUp ? (
+              <>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signin");
+                    setPassword("");
+                    setConfirmPassword("");
+                    onClearError();
+                  }}
+                  className="font-semibold text-zinc-900 underline-offset-2 hover:underline"
+                >
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                Need an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signup");
+                    setPassword("");
+                    setConfirmPassword("");
+                    onClearError();
+                  }}
+                  className="font-semibold text-zinc-900 underline-offset-2 hover:underline"
+                >
+                  Create one
+                </button>
+              </>
+            )}
+          </div>
+
+          <p className="text-center text-[11px] text-zinc-400">
+            No credit card required.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1167,7 +2611,7 @@ function ContactEditor({
               Business hours
             </p>
             <p className="mt-1 text-xs leading-5 text-zinc-400">
-              Optional. Give customers an idea of when you're available.
+              Optional. Give customers an idea of when you&apos;re available.
             </p>
           </div>
 
@@ -1478,7 +2922,7 @@ function PagesEditor({
           <div>
 
             <p className="text-xs font-semibold text-zinc-800">
-              Don't overcomplicate it
+              Don&apos;t overcomplicate it
             </p>
 
             <p className="mt-1 text-xs leading-5 text-zinc-400">
@@ -1916,6 +3360,59 @@ function GalleryEditor({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+
+  function isHttpUrl(value: string) {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  function normalizeImageUrl(rawUrl: string) {
+    const trimmedUrl = rawUrl.trim();
+
+    if (!trimmedUrl) {
+      return "";
+    }
+
+    try {
+      const parsedUrl = new URL(trimmedUrl);
+
+      if (
+        parsedUrl.hostname === "google.com" ||
+        parsedUrl.hostname === "www.google.com"
+      ) {
+        const imageUrlFromSearch = parsedUrl.searchParams.get("imgurl");
+
+        if (
+          imageUrlFromSearch &&
+          isHttpUrl(imageUrlFromSearch)
+        ) {
+          return imageUrlFromSearch;
+        }
+      }
+
+      if (
+        parsedUrl.hostname === "unsplash.com" ||
+        parsedUrl.hostname === "www.unsplash.com"
+      ) {
+        const photoMatch = parsedUrl.pathname.match(
+          /^\/photos\/(?:[^/]+-)?([A-Za-z0-9_-]+)\/?$/,
+        );
+
+        if (photoMatch?.[1]) {
+          return `https://unsplash.com/photos/${photoMatch[1]}/download?force=true&w=1200`;
+        }
+      }
+    } catch {
+      return trimmedUrl;
+    }
+
+    return trimmedUrl;
+  }
 
   function resetForm() {
     setAdding(false);
@@ -1923,10 +3420,13 @@ function GalleryEditor({
     setTitle("");
     setDescription("");
     setImageUrl("");
+    setFailedPreviewUrl(null);
   }
 
   function saveItem() {
-    if (!imageUrl.trim()) return;
+    const resolvedImageUrl = normalizeImageUrl(imageUrl);
+
+    if (!resolvedImageUrl) return;
 
     if (editingId) {
       setGallery((current) =>
@@ -1936,7 +3436,7 @@ function GalleryEditor({
                 ...item,
                 title: title.trim(),
                 description: description.trim(),
-                imageUrl: imageUrl.trim(),
+                imageUrl: resolvedImageUrl,
               }
             : item,
         ),
@@ -1948,7 +3448,7 @@ function GalleryEditor({
           id: `gallery-${Date.now()}`,
           title: title.trim(),
           description: description.trim(),
-          imageUrl: imageUrl.trim(),
+          imageUrl: resolvedImageUrl,
           enabled: true,
         },
       ]);
@@ -1981,6 +3481,13 @@ function GalleryEditor({
       ),
     );
   }
+
+  const previewImageUrl =
+    normalizeImageUrl(imageUrl);
+
+  const previewLoadFailed =
+    Boolean(previewImageUrl) &&
+    failedPreviewUrl === previewImageUrl;
 
   return (
     <div>
@@ -2017,13 +3524,12 @@ function GalleryEditor({
               }`}
             >
               <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  key={item.imageUrl}
                   src={item.imageUrl}
                   alt={item.title || "Gallery image"}
                   className="h-full w-full object-cover"
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none";
-                  }}
                 />
 
                 {!item.enabled && (
@@ -2133,17 +3639,27 @@ function GalleryEditor({
               />
             </ModernField>
 
-            {imageUrl.trim() && (
+            {previewImageUrl && (
               <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
                 <div className="aspect-[16/9]">
-                  <img
-                    src={imageUrl}
-                    alt="Gallery preview"
-                    className="h-full w-full object-cover"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
+                  {previewLoadFailed ? (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
+                      Could not load this image URL.
+                    </div>
+                  ) : (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        key={previewImageUrl}
+                        src={previewImageUrl}
+                        alt="Gallery preview"
+                        className="h-full w-full object-cover"
+                        onError={() => {
+                          setFailedPreviewUrl(previewImageUrl);
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -2206,49 +3722,6 @@ function GalleryEditor({
 /* ============================================================
    SIMPLE SECTION
 ============================================================ */
-
-function SimpleSection({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: string;
-}) {
-  return (
-    <div>
-
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-lg text-indigo-600">
-        {icon}
-      </div>
-
-      <div className="mt-5">
-
-        <SectionHeading
-          eyebrow=""
-          title={title}
-          description={description}
-        />
-
-      </div>
-
-      <div className="mt-8 max-w-2xl rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center">
-
-        <p className="text-sm font-semibold text-zinc-800">
-          This section is coming next.
-        </p>
-
-        <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-zinc-400">
-          The structure is ready for this feature.
-          We'll build the full editor here next.
-        </p>
-
-      </div>
-
-    </div>
-  );
-}
 
 /* ============================================================
    SECTION HEADING
@@ -2395,8 +3868,188 @@ function PreviewExperience({
   setDevice: (device: Device) => void;
   onClose: () => void;
 }) {
+  const [selectedPresetId, setSelectedPresetId] =
+    useState<string>("live");
+
+  const selectedPreset =
+    industryPreviewPresets.find(
+      (preset) => preset.id === selectedPresetId,
+    ) || industryPreviewPresets[0];
+
+  const usingPreset =
+    selectedPreset.id !== "live";
+
+  const previewApp = useMemo(() => {
+    if (!usingPreset) {
+      return app;
+    }
+
+    return {
+      ...app,
+
+      primaryColor:
+        selectedPreset.primaryColor,
+
+      business: {
+        ...app.business,
+        name: selectedPreset.businessName,
+        description:
+          selectedPreset.description,
+        phone: selectedPreset.phone,
+        whatsapp:
+          selectedPreset.whatsapp,
+        email: selectedPreset.email,
+        address:
+          selectedPreset.address,
+      },
+    };
+  }, [
+    app,
+    selectedPreset,
+    usingPreset,
+  ]);
+
+  const previewServices =
+    usingPreset &&
+    selectedPreset.services.length > 0
+      ? selectedPreset.services
+      : services;
+
+  const previewGallery =
+    usingPreset &&
+    selectedPreset.gallery.length > 0
+      ? selectedPreset.gallery
+      : gallery;
+
+  const previewContactSettings =
+    useMemo(
+      () => ({
+        ...contactSettings,
+        showPhone: true,
+        showWhatsapp: true,
+        showEmail: true,
+        showAddress: true,
+      }),
+      [contactSettings],
+    );
+
   const businessName =
-    app.business.name.trim() || "Your Business";
+    previewApp.business.name.trim() ||
+    "Your Business";
+
+  const enabledGalleryCount =
+    previewGallery.filter(
+      (item) => item.enabled,
+    ).length;
+
+  const hasContactPreview = Boolean(
+    (previewContactSettings.showPhone && previewApp.business.phone.trim()) ||
+      (previewContactSettings.showWhatsapp && previewApp.business.whatsapp.trim()) ||
+      (previewContactSettings.showEmail && previewApp.business.email.trim()) ||
+      (previewContactSettings.showAddress && previewApp.business.address.trim()),
+  );
+
+  const guidedStops = useMemo(
+    () =>
+      guidedPreviewStops.filter((stop) => {
+        if (stop.target === "gallery") {
+          return enabledGalleryCount > 0;
+        }
+
+        if (stop.target === "contact") {
+          return hasContactPreview;
+        }
+
+        return true;
+      }),
+    [
+      enabledGalleryCount,
+      hasContactPreview,
+    ],
+  );
+
+  const [demoMomentIndex, setDemoMomentIndex] =
+    useState(0);
+
+  const [guidedIndex, setGuidedIndex] =
+    useState(0);
+
+  const [guidedAutoplay, setGuidedAutoplay] =
+    useState(true);
+
+  const [leadOpen, setLeadOpen] =
+    useState(false);
+
+  const [leadName, setLeadName] =
+    useState("");
+
+  const [leadContact, setLeadContact] =
+    useState("");
+
+  const [leadSent, setLeadSent] =
+    useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setDemoMomentIndex((current) =>
+        (current + 1) % previewMoments.length,
+      );
+    }, 2600);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const currentMoment =
+    previewMoments[demoMomentIndex];
+
+  const guidedIndexResolved =
+    guidedStops.length > 0
+      ? guidedIndex % guidedStops.length
+      : 0;
+
+  const currentGuidedStop =
+    guidedStops[guidedIndexResolved] ||
+    guidedStops[0] ||
+    guidedPreviewStops[0];
+
+  useEffect(() => {
+    if (!guidedAutoplay || guidedStops.length < 2) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setGuidedIndex((current) =>
+        (current + 1) % guidedStops.length,
+      );
+    }, 2200);
+
+    return () => window.clearInterval(timer);
+  }, [
+    guidedAutoplay,
+    guidedStops,
+  ]);
+
+  function toggleGuidedAutoplay() {
+    setGuidedAutoplay((value) => {
+      const nextValue = !value;
+
+      if (nextValue && guidedStops.length > 1) {
+        setGuidedIndex((current) =>
+          (current + 1) % guidedStops.length,
+        );
+      }
+
+      return nextValue;
+    });
+  }
+
+  function submitLead() {
+    if (!leadName.trim() || !leadContact.trim()) {
+      return;
+    }
+
+    setLeadSent(true);
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-950 text-white">
@@ -2470,14 +4123,127 @@ function PreviewExperience({
             </h2>
 
             <p className="mt-4 text-sm leading-6 text-white/50">
-              Everything you've entered is now brought together into a real mobile app experience. Switch between iOS and Android to see how it feels on each device.
+              Everything you have entered is now brought together into a real mobile app experience. Switch between iOS and Android to see how it feels on each device.
             </p>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/55">
+                Industry presets
+              </p>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {industryPreviewPresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedPresetId(
+                        preset.id,
+                      )
+                    }
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+                      selectedPresetId === preset.id
+                        ? "bg-white text-zinc-950"
+                        : "bg-white/10 text-white/75 hover:bg-white/20 hover:text-white"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+                  App look and feel reel
+                </p>
+                <button
+                  type="button"
+                  onClick={toggleGuidedAutoplay}
+                  disabled={guidedStops.length < 2}
+                  className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${
+                    guidedAutoplay
+                      ? "bg-emerald-400/20 text-emerald-300"
+                      : "bg-white/20 text-white/80"
+                  }`}
+                >
+                  {guidedStops.length < 2
+                    ? "Walkthrough unavailable"
+                    : guidedAutoplay
+                      ? "Pause walkthrough"
+                      : "Play walkthrough"}
+                </button>
+              </div>
+
+              <p className="mt-3 text-sm font-semibold text-white">
+                {currentMoment.title}
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-white/65">
+                {currentMoment.detail}
+              </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {previewMoments.map((moment, index) => (
+                  <button
+                    key={moment.title}
+                    type="button"
+                    onClick={() =>
+                      setDemoMomentIndex(index)
+                    }
+                    className={`h-1.5 rounded-full transition ${
+                      index === demoMomentIndex
+                        ? "bg-white"
+                        : "bg-white/20 hover:bg-white/45"
+                    }`}
+                    aria-label={`Show preview moment ${index + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/10 p-3">
+                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/55">
+                  Customer journey mode
+                </p>
+
+                <p className="mt-2 text-[11px] font-semibold text-white">
+                  {currentGuidedStop.label}: {currentGuidedStop.detail}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {guidedStops.map(
+                    (
+                      stop,
+                      index,
+                    ) => (
+                      <button
+                        key={stop.target}
+                        type="button"
+                        onClick={() => {
+                          setGuidedAutoplay(false);
+                          setGuidedIndex(index);
+                        }}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+                          guidedIndexResolved === index
+                            ? "bg-white text-zinc-950"
+                            : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                        }`}
+                      >
+                        {stop.label}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+            </div>
 
             <div className="mt-7 space-y-3">
               {[
                 "Business information",
                 "Services and pricing",
                 "Gallery and contact details",
+                "Tap cards and menu tabs to interact",
               ].map((item) => (
                 <div key={item} className="flex items-center gap-3 text-xs font-medium text-white/65">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[9px] text-white">
@@ -2487,17 +4253,87 @@ function PreviewExperience({
                 </div>
               ))}
             </div>
+
+            <div className="mt-6 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-100">
+                Ready to launch?
+              </p>
+
+              <p className="mt-2 text-xs leading-5 text-emerald-50/90">
+                This preview is built to convert. Capture interest while they are excited.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLeadOpen(
+                    (value) => !value,
+                  );
+                  setLeadSent(false);
+                }}
+                className="mt-3 w-full rounded-xl bg-white px-3 py-2 text-xs font-bold text-zinc-950 transition hover:bg-emerald-100"
+              >
+                {selectedPreset.cta}
+              </button>
+
+              {leadOpen && (
+                <div className="mt-3 space-y-2 rounded-xl border border-white/20 bg-black/20 p-3">
+                  {leadSent ? (
+                    <p className="text-xs font-semibold text-emerald-200">
+                      Thanks. We will contact you shortly.
+                    </p>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={leadName}
+                        onChange={(event) =>
+                          setLeadName(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Your name"
+                        className="h-9 w-full rounded-lg border border-white/15 bg-white/10 px-3 text-xs text-white placeholder:text-white/40"
+                      />
+
+                      <input
+                        type="text"
+                        value={leadContact}
+                        onChange={(event) =>
+                          setLeadContact(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Phone or email"
+                        className="h-9 w-full rounded-lg border border-white/15 bg-white/10 px-3 text-xs text-white placeholder:text-white/40"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={submitLead}
+                        className="w-full rounded-lg bg-emerald-300 px-3 py-2 text-xs font-bold text-zinc-950 transition hover:bg-emerald-200"
+                      >
+                        Request my app demo
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex min-h-0 items-center justify-center">
             <div className="origin-center scale-[0.86] sm:scale-[0.94] lg:scale-[1.02]">
               <AppDevice
                 device={device}
-                app={app}
+                app={previewApp}
                 pages={pages}
-                services={services}
-                gallery={gallery}
-                contactSettings={contactSettings}
+                services={previewServices}
+                gallery={previewGallery}
+                contactSettings={previewContactSettings}
+                guidedTarget={
+                  currentGuidedStop.target
+                }
               />
             </div>
           </div>
@@ -2760,7 +4596,7 @@ function AssistantWidget({
           <>
 
             <p className="text-sm leading-6 text-zinc-600">
-              I'm here if you need guidance while
+              I&apos;m here if you need guidance while
               building your app. You can also ignore
               me completely and build it yourself.
             </p>
@@ -2900,6 +4736,7 @@ function AppDevice({
   services,
   gallery,
   contactSettings,
+  guidedTarget,
 }: {
   device: Device;
   app: AppConfig;
@@ -2907,8 +4744,27 @@ function AppDevice({
   services: AppService[];
   gallery: GalleryItem[];
   contactSettings: ContactSettings;
+  guidedTarget?:
+    | "home"
+    | "services"
+    | "gallery"
+    | "contact"
+    | "about";
 }) {
   const isIOS = device === "ios";
+
+  const scrollAreaRef =
+    useRef<HTMLDivElement>(null);
+  const homeRef =
+    useRef<HTMLDivElement>(null);
+  const servicesRef =
+    useRef<HTMLDivElement>(null);
+  const galleryRef =
+    useRef<HTMLDivElement>(null);
+  const contactRef =
+    useRef<HTMLDivElement>(null);
+  const aboutRef =
+    useRef<HTMLDivElement>(null);
 
   const businessName =
     app.business.name.trim() || "Your Business";
@@ -2925,6 +4781,34 @@ function AppDevice({
     .filter((item) => item.enabled)
     .slice(0, 3);
 
+  const [activePage, setActivePage] =
+    useState<string>(
+      enabledPages[0]?.id || "home",
+    );
+
+  const [expandedServiceId, setExpandedServiceId] =
+    useState<string | null>(null);
+
+  const [selectedGalleryId, setSelectedGalleryId] =
+    useState<string>(
+      enabledGallery[0]?.id || "",
+    );
+
+  const [previewMessage, setPreviewMessage] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    if (!previewMessage) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setPreviewMessage(null);
+    }, 1400);
+
+    return () => window.clearTimeout(timer);
+  }, [previewMessage]);
+
   const hasContact = Boolean(
     (contactSettings.showPhone && app.business.phone.trim()) ||
       (contactSettings.showWhatsapp && app.business.whatsapp.trim()) ||
@@ -2932,7 +4816,127 @@ function AppDevice({
       (contactSettings.showAddress && app.business.address.trim()),
   );
 
-  const heroImage = enabledGallery[0]?.imageUrl;
+  const serviceItems =
+    enabledServices.length > 0
+      ? enabledServices
+      : [
+          {
+            id: "preview-1",
+            name: "Your services",
+            description:
+              "Add services to personalise this preview.",
+            price: "",
+            enabled: true,
+          },
+        ];
+
+  const expandedServiceIdResolved =
+    guidedTarget === "services"
+      ? serviceItems[0]?.id || null
+      : expandedServiceId;
+
+  const selectedGalleryIdResolved =
+    guidedTarget === "gallery"
+      ? enabledGallery[0]?.id || selectedGalleryId
+      : selectedGalleryId;
+
+  const selectedGalleryItem =
+    enabledGallery.find(
+      (item) => item.id === selectedGalleryIdResolved,
+    ) || enabledGallery[0];
+
+  const activePageResolved =
+    guidedTarget &&
+    enabledPages.some(
+      (page) => page.id === guidedTarget,
+    )
+      ? guidedTarget
+      :
+    enabledPages.some(
+      (page) => page.id === activePage,
+    )
+      ? activePage
+      : enabledPages[0]?.id || "home";
+
+  const heroImage =
+    selectedGalleryItem?.imageUrl;
+
+  function jumpToPage(pageId: string) {
+    setActivePage(pageId);
+
+    const sectionMap: Record<
+      string,
+      RefObject<HTMLDivElement | null>
+    > = {
+      home: homeRef,
+      services: servicesRef,
+      gallery: galleryRef,
+      contact: contactRef,
+      about: aboutRef,
+    };
+
+    const targetRef = sectionMap[pageId];
+
+    if (!targetRef?.current) {
+      return;
+    }
+
+    targetRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  function showFeedback(message: string) {
+    setPreviewMessage(message);
+  }
+
+  useEffect(() => {
+    if (!guidedTarget) {
+      return;
+    }
+
+    const sectionMap: Record<
+      "home" | "services" | "gallery" | "contact" | "about",
+      RefObject<HTMLDivElement | null>
+    > = {
+      home: homeRef,
+      services: servicesRef,
+      gallery: galleryRef,
+      contact: contactRef,
+      about: aboutRef,
+    };
+
+    const targetRef = sectionMap[guidedTarget];
+
+    if (!targetRef.current) {
+      return;
+    }
+
+    targetRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [guidedTarget]);
+
+  function cycleHeroMedia() {
+    if (enabledGallery.length <= 1) {
+      showFeedback("Add more gallery images to rotate hero media.");
+      return;
+    }
+
+    const currentIndex = enabledGallery.findIndex(
+      (item) => item.id === selectedGalleryIdResolved,
+    );
+
+    const nextItem =
+      enabledGallery[
+        (currentIndex + 1) % enabledGallery.length
+      ];
+
+    setSelectedGalleryId(nextItem.id);
+    showFeedback("Hero media changed");
+  }
 
   return (
     <div className="flex flex-col items-center">
@@ -2991,16 +4995,40 @@ function AppDevice({
             )}
 
             {/* APP SCROLL AREA */}
-            <div className="absolute inset-0 overflow-y-auto pb-[76px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              ref={scrollAreaRef}
+              className="absolute inset-0 overflow-y-auto pb-[76px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               {/* HERO */}
-              <div className="px-5 pt-8">
+              <div
+                ref={homeRef}
+                className="px-5 pt-8"
+              >
                 <div
-                  className="relative h-[182px] overflow-hidden rounded-[28px] shadow-[0_18px_42px_rgba(0,0,0,0.18)]"
+                  role="button"
+                  tabIndex={0}
+                  onClick={cycleHeroMedia}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" ||
+                      event.key === " "
+                    ) {
+                      event.preventDefault();
+                      cycleHeroMedia();
+                    }
+                  }}
+                  className={`relative h-[182px] overflow-hidden rounded-[28px] shadow-[0_18px_42px_rgba(0,0,0,0.18)] transition active:scale-[0.99] ${
+                    guidedTarget === "home"
+                      ? "ring-2 ring-indigo-300/80"
+                      : ""
+                  }`}
                   style={{
                     backgroundColor: app.primaryColor,
                   }}
+                  aria-label="Tap to rotate hero image"
                 >
                   {heroImage ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={heroImage}
                       alt=""
@@ -3030,6 +5058,15 @@ function AppDevice({
                     <div className="mt-3 h-[3px] w-12 rounded-full bg-white/90" />
                   </div>
                 </div>
+
+                <div className="mt-3 flex items-center justify-between rounded-2xl border border-zinc-100 bg-white px-3 py-2 shadow-[0_4px_14px_rgba(0,0,0,0.04)]">
+                  <p className="text-[7px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                    Tap buttons and swipe up to explore
+                  </p>
+                  <span className="text-[10px] text-zinc-400 animate-bounce">
+                    ↓
+                  </span>
+                </div>
               </div>
 
               {/* QUICK ACTIONS */}
@@ -3040,10 +5077,25 @@ function AppDevice({
                     { label: "WhatsApp", icon: "◉", show: contactSettings.showWhatsapp && !!app.business.whatsapp.trim() },
                     { label: "Contact", icon: "✉", show: hasContact },
                   ].map((action) => (
-                    <div
+                    <button
                       key={action.label}
+                      type="button"
+                      onClick={() => {
+                        if (!action.show) {
+                          showFeedback(
+                            `Add ${action.label.toLowerCase()} details in the builder.`,
+                          );
+                          return;
+                        }
+
+                        showFeedback(
+                          `Opening ${action.label}...`,
+                        );
+                      }}
                       className={`rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-[0_4px_14px_rgba(0,0,0,0.04)] ${
-                        action.show ? "" : "opacity-50"
+                        action.show
+                          ? "active:scale-[0.97]"
+                          : "opacity-50"
                       }`}
                     >
                       <div
@@ -3061,13 +5113,20 @@ function AppDevice({
                       <p className="mt-0.5 text-[7px] font-medium text-zinc-500">
                         {action.show ? "Available" : "Add details"}
                       </p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
 
               {/* SERVICES */}
-              <div className="px-5 pt-5">
+              <div
+                ref={servicesRef}
+                className={`px-5 pt-5 transition ${
+                  guidedTarget === "services"
+                    ? "scale-[1.01]"
+                    : ""
+                }`}
+              >
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-[12px] font-extrabold text-zinc-950">
@@ -3086,20 +5145,24 @@ function AppDevice({
                 </div>
 
                 <div className="mt-3 space-y-2">
-                  {(enabledServices.length > 0
-                    ? enabledServices
-                    : [
-                        {
-                          id: "preview-1",
-                          name: "Your services",
-                          description: "Add services to personalise this preview.",
-                          price: "",
-                          enabled: true,
-                        },
-                      ]
-                  ).map((service, index) => (
-                    <div
+                  {serviceItems.map((service, index) => (
+                    <button
                       key={service.id}
+                      type="button"
+                      onClick={() => {
+                        setExpandedServiceId(
+                          expandedServiceId === service.id
+                            ? null
+                            : service.id,
+                        );
+                        showFeedback(
+                          `${service.name} details ${
+                            expandedServiceId === service.id
+                              ? "collapsed"
+                              : "expanded"
+                          }`,
+                        );
+                      }}
                       className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-[0_4px_14px_rgba(0,0,0,0.035)]"
                     >
                       <div
@@ -3117,7 +5180,9 @@ function AppDevice({
                           {service.name}
                         </p>
                         <p className="mt-1 line-clamp-1 text-[7px] font-medium text-zinc-500">
-                          {service.description || "Professional service"}
+                          {expandedServiceIdResolved === service.id
+                            ? service.description || "Professional service"
+                            : "Tap for more"}
                         </p>
                       </div>
 
@@ -3126,14 +5191,21 @@ function AppDevice({
                           {service.price}
                         </span>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
 
               {/* GALLERY */}
               {enabledGallery.length > 0 && (
-                <div className="px-5 pt-5">
+                <div
+                  ref={galleryRef}
+                  className={`px-5 pt-5 transition ${
+                    guidedTarget === "gallery"
+                      ? "scale-[1.01]"
+                      : ""
+                  }`}
+                >
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-[12px] font-extrabold text-zinc-950">Gallery</p>
@@ -3149,16 +5221,28 @@ function AppDevice({
 
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {enabledGallery.map((item) => (
-                      <div
+                      <button
                         key={item.id}
-                        className="aspect-square overflow-hidden rounded-2xl bg-zinc-100 shadow-[0_4px_14px_rgba(0,0,0,0.06)]"
+                        type="button"
+                        onClick={() => {
+                          setSelectedGalleryId(item.id);
+                          showFeedback(
+                            `${item.title || "Gallery item"} selected`,
+                          );
+                        }}
+                        className={`aspect-square overflow-hidden rounded-2xl bg-zinc-100 shadow-[0_4px_14px_rgba(0,0,0,0.06)] ${
+                          selectedGalleryIdResolved === item.id
+                            ? "ring-2 ring-zinc-900/30"
+                            : ""
+                        }`}
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.imageUrl}
                           alt={item.title || "Gallery image"}
                           className="h-full w-full object-cover"
                         />
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -3166,17 +5250,30 @@ function AppDevice({
 
               {/* CONTACT */}
               {hasContact && (
-                <div className="px-5 pt-5">
+                <div
+                  ref={contactRef}
+                  className={`px-5 pt-5 transition ${
+                    guidedTarget === "contact"
+                      ? "scale-[1.01]"
+                      : ""
+                  }`}
+                >
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-[12px] font-extrabold text-zinc-950">Get in touch</p>
-                      <p className="mt-0.5 text-[8px] font-medium text-zinc-500">We'd love to hear from you</p>
+                      <p className="mt-0.5 text-[8px] font-medium text-zinc-500">We would love to hear from you</p>
                     </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {contactSettings.showPhone && app.business.phone.trim() && (
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-[0_4px_14px_rgba(0,0,0,0.035)]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          showFeedback("Starting a call...")
+                        }
+                        className="rounded-2xl border border-zinc-100 bg-white p-2.5 text-left shadow-[0_4px_14px_rgba(0,0,0,0.035)]"
+                      >
                         <div
                           className="flex h-7 w-7 items-center justify-center rounded-xl text-[8px]"
                           style={{ backgroundColor: `${app.primaryColor}12`, color: app.primaryColor }}
@@ -3185,11 +5282,17 @@ function AppDevice({
                         </div>
                         <p className="mt-2 text-[8px] font-bold text-zinc-900">Call us</p>
                         <p className="mt-0.5 truncate text-[6px] text-zinc-400">{app.business.phone}</p>
-                      </div>
+                      </button>
                     )}
 
                     {contactSettings.showWhatsapp && app.business.whatsapp.trim() && (
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-[0_4px_14px_rgba(0,0,0,0.035)]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          showFeedback("Opening WhatsApp...")
+                        }
+                        className="rounded-2xl border border-zinc-100 bg-white p-2.5 text-left shadow-[0_4px_14px_rgba(0,0,0,0.035)]"
+                      >
                         <div
                           className="flex h-7 w-7 items-center justify-center rounded-xl text-[8px]"
                           style={{ backgroundColor: `${app.primaryColor}12`, color: app.primaryColor }}
@@ -3198,11 +5301,17 @@ function AppDevice({
                         </div>
                         <p className="mt-2 text-[8px] font-bold text-zinc-900">WhatsApp</p>
                         <p className="mt-0.5 truncate text-[6px] text-zinc-400">{app.business.whatsapp}</p>
-                      </div>
+                      </button>
                     )}
 
                     {contactSettings.showEmail && app.business.email.trim() && (
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-[0_4px_14px_rgba(0,0,0,0.035)]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          showFeedback("Opening email...")
+                        }
+                        className="rounded-2xl border border-zinc-100 bg-white p-2.5 text-left shadow-[0_4px_14px_rgba(0,0,0,0.035)]"
+                      >
                         <div
                           className="flex h-7 w-7 items-center justify-center rounded-xl text-[8px]"
                           style={{ backgroundColor: `${app.primaryColor}12`, color: app.primaryColor }}
@@ -3211,11 +5320,17 @@ function AppDevice({
                         </div>
                         <p className="mt-2 text-[8px] font-bold text-zinc-900">Email</p>
                         <p className="mt-0.5 truncate text-[6px] text-zinc-400">{app.business.email}</p>
-                      </div>
+                      </button>
                     )}
 
                     {contactSettings.showAddress && app.business.address.trim() && (
-                      <div className="rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-[0_4px_14px_rgba(0,0,0,0.035)]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          showFeedback("Opening map...")
+                        }
+                        className="rounded-2xl border border-zinc-100 bg-white p-2.5 text-left shadow-[0_4px_14px_rgba(0,0,0,0.035)]"
+                      >
                         <div
                           className="flex h-7 w-7 items-center justify-center rounded-xl text-[8px]"
                           style={{ backgroundColor: `${app.primaryColor}12`, color: app.primaryColor }}
@@ -3224,7 +5339,7 @@ function AppDevice({
                         </div>
                         <p className="mt-2 text-[8px] font-bold text-zinc-900">Find us</p>
                         <p className="mt-0.5 line-clamp-2 text-[6px] text-zinc-400">{app.business.address}</p>
-                      </div>
+                      </button>
                     )}
                   </div>
 
@@ -3239,9 +5354,31 @@ function AppDevice({
                 </div>
               )}
 
+              <div
+                ref={aboutRef}
+                className={`px-5 pt-5 transition ${
+                  guidedTarget === "about"
+                    ? "scale-[1.01]"
+                    : ""
+                }`}
+              >
+                <div className="rounded-3xl border border-zinc-100 bg-zinc-50/80 p-4">
+                  <p className="text-[11px] font-extrabold text-zinc-900">
+                    About {businessName}
+                  </p>
+                  <p className="mt-2 text-[8px] leading-4 text-zinc-500">
+                    {description}
+                  </p>
+                </div>
+              </div>
+
               {/* PRIMARY CTA */}
               <div className="px-5 pb-2 pt-5">
-                <div
+                <button
+                  type="button"
+                  onClick={() =>
+                    showFeedback("Lead form opened")
+                  }
                   className="rounded-2xl px-4 py-3.5 text-center shadow-[0_10px_24px_rgba(0,0,0,0.10)]"
                   style={{ backgroundColor: app.primaryColor }}
                 >
@@ -3251,19 +5388,34 @@ function AppDevice({
                   <p className="mt-1 text-[6px] text-white/70">
                     Get in touch with {businessName}
                   </p>
-                </div>
+                </button>
               </div>
             </div>
+
+            <div className="pointer-events-none absolute bottom-[58px] left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent" />
+
+            {previewMessage && (
+              <div className="pointer-events-none absolute bottom-[86px] left-1/2 z-40 -translate-x-1/2 rounded-full bg-zinc-950 px-3 py-1.5 text-[8px] font-semibold text-white shadow-lg">
+                {previewMessage}
+              </div>
+            )}
 
             {/* APP NAV */}
             <div className="absolute bottom-0 left-0 right-0 z-30 border-t border-zinc-100/90 bg-white/95 px-4 pb-3 pt-2 backdrop-blur-xl">
               <div className="flex items-center justify-between">
-                {enabledPages.slice(0, 5).map((page, index) => (
-                  <div
+                {enabledPages.slice(0, 5).map((page) => (
+                  <button
                     key={page.id}
+                    type="button"
+                    onClick={() =>
+                      jumpToPage(page.id)
+                    }
                     className="min-w-0 text-center"
                     style={{
-                      color: index === 0 ? app.primaryColor : "#a1a1aa",
+                      color:
+                        page.id === activePageResolved
+                          ? app.primaryColor
+                          : "#a1a1aa",
                     }}
                   >
                     <div className="mx-auto flex h-7 w-7 items-center justify-center rounded-xl text-[10px]">
@@ -3272,7 +5424,7 @@ function AppDevice({
                     <span className="block max-w-[46px] truncate text-[6px] font-semibold">
                       {page.name}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
 

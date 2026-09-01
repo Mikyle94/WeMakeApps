@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 const steps = [
   {
@@ -175,7 +176,7 @@ function DevicePreview() {
                   </p>
 
                   <p className="mt-1 text-[12px] font-bold leading-tight text-white">
-                    We're here when
+                    We&apos;re here when
                     <br />
                     you need us.
                   </p>
@@ -461,11 +462,11 @@ export default function Home() {
       <nav className="sticky top-0 z-50 border-b border-zinc-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
           {/* Logo */}
-          <a href="/" className="text-xl font-bold tracking-tight">
+          <Link href="/" className="text-xl font-bold tracking-tight">
             <span>We</span>
             <span className="text-indigo-600">Make</span>
             <span>Apps</span>
-          </a>
+          </Link>
 
           {/* Left-aligned menu */}
           <div className="ml-12 hidden flex-1 items-center gap-8 text-sm font-medium text-zinc-500 md:flex">
@@ -500,19 +501,19 @@ export default function Home() {
 
           {/* Right actions */}
           <div className="flex items-center gap-4">
-            <a
+            <Link
               href="/signin"
-              className="hidden text-sm font-medium text-zinc-600 transition hover:text-zinc-950 sm:block"
+              className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
             >
               Sign in
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/builder"
               className="rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-zinc-800"
             >
               Start Building Free
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
@@ -541,16 +542,16 @@ export default function Home() {
               </p>
 
               <p className="mt-2 max-w-lg text-lg leading-8 text-zinc-600">
-                No coding. No commitment. Launch when you're ready.
+                No coding. No commitment. Launch when you&apos;re ready.
               </p>
 
               <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-                <a
+                <Link
                   href="/builder"
                   className="rounded-full bg-zinc-950 px-7 py-4 text-center text-sm font-semibold text-white shadow-lg shadow-zinc-200 transition hover:-translate-y-0.5 hover:bg-zinc-800"
                 >
                   Start Building Free →
-                </a>
+                </Link>
 
                 <a
                   href="#how-it-works"
@@ -743,12 +744,12 @@ export default function Home() {
               </div>
             </div>
 
-            <a
+            <Link
               href="/builder"
               className="mt-6 block rounded-full bg-zinc-950 px-6 py-4 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
             >
               Start Building Free
-            </a>
+            </Link>
 
             <p className="mt-3 text-center text-xs text-zinc-400">
               No credit card. No commitment.
@@ -769,7 +770,7 @@ export default function Home() {
             </p>
 
             <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-              Your idea doesn't have to fit inside a template.
+              Your idea doesn&apos;t have to fit inside a template.
             </h2>
 
             <p className="mt-5 max-w-lg text-sm leading-7 text-zinc-400">
@@ -778,12 +779,12 @@ export default function Home() {
               development team can help.
             </p>
 
-            <a
+            <Link
               href="/custom-app"
               className="mt-8 inline-flex rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200"
             >
               Discuss a Custom App →
-            </a>
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -817,7 +818,7 @@ export default function Home() {
 
                   <div className="mt-3 rounded-lg bg-white/10 p-2">
                     <p className="text-[6px] text-zinc-300">
-                      Today's bookings
+                      Today&apos;s bookings
                     </p>
 
                     <p className="mt-1 text-sm font-bold text-white">
@@ -865,12 +866,12 @@ export default function Home() {
             want to save your progress.
           </p>
 
-          <a
+          <Link
             href="/builder"
             className="mt-9 inline-flex rounded-full bg-zinc-950 px-8 py-4 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-800"
           >
             Start Building Free →
-          </a>
+          </Link>
         </div>
       </section>
 
