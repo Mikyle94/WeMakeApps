@@ -25,6 +25,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!serviceRoleKey) {
+      console.error("[API][APPS/LOAD] SUPABASE_SERVICE_ROLE_KEY is missing.");
+      return NextResponse.json(
+        { error: "Server database configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY to .env.local." },
+        { status: 500 },
+      );
+    }
+
     const appId = request.nextUrl.searchParams.get("appId");
 
     console.log("[API][APPS/LOAD] Request", {
@@ -56,7 +64,7 @@ export async function GET(request: NextRequest) {
     );
 
     const { data: { user }, error: userError } =
-      await supabase.auth.getUser();
+      await authSupabase.auth.getUser();
 
     console.log("[API][APPS/LOAD] Auth", {
       userId: user?.id ?? null,
@@ -70,6 +78,18 @@ export async function GET(request: NextRequest) {
         { status: 401 },
       );
     }
+
+    // Authentication is verified with the bearer token above. Use the server-only service-role client for reads so RLS policies cannot hide an otherwise owned app.
+    const supabase = createSupabaseClient(
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
 
     const { data: app, error: appError } = await supabase
       .from("apps")

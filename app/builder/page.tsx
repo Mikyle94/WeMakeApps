@@ -522,6 +522,16 @@ export default function BuilderPage() {
   const [isSigningOut, setIsSigningOut] =
     useState(false);
 
+  /*
+   * IMPORTANT: the URL is the source of truth for which app is being edited.
+   *
+   * /builder                  = NEW APP
+   * /builder?new=1            = NEW APP
+   * /builder?appId=<uuid>     = EDIT EXISTING APP
+   *
+   * Do NOT fall back to localStorage here. Doing that makes a brand-new
+   * builder session accidentally reuse the last app and overwrite it.
+   */
   const [savedAppId, setSavedAppId] =
     useState<string | null>(() => {
       if (typeof window === "undefined") {
@@ -529,16 +539,7 @@ export default function BuilderPage() {
       }
 
       const url = new URL(window.location.href);
-      const appIdFromUrl =
-        url.searchParams.get("appId");
-
-      if (appIdFromUrl) {
-        return appIdFromUrl;
-      }
-
-      return window.localStorage.getItem(
-        "wemakeapps:lastAppId",
-      );
+      return url.searchParams.get("appId");
     });
 
   const [isSaving, setIsSaving] =
@@ -1318,8 +1319,22 @@ export default function BuilderPage() {
 
   useEffect(() => {
     const appId = searchParams.get("appId");
+    const isNewApp = searchParams.get("new") === "1";
 
-    if (!appId) {
+    /*
+     * A new-app navigation must always start with clean builder state.
+     * This is especially important when Next.js reuses the builder page
+     * component during client-side navigation.
+     */
+    if (isNewApp || !appId) {
+      loadedAppIdRef.current = null;
+      setSavedAppId(null);
+      setLoadAppError(null);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("wemakeapps:lastAppId");
+      }
+
       return;
     }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 const steps = [
   {
@@ -401,9 +402,11 @@ function BuilderPreview() {
 
                 <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2.5">
                   <span className="h-5 w-5 rounded-md bg-indigo-600" />
+
                   <span className="text-[10px] text-zinc-700">
                     Indigo
                   </span>
+
                   <span className="ml-auto text-zinc-400">⌄</span>
                 </div>
               </div>
@@ -456,19 +459,99 @@ function BuilderPreview() {
 }
 
 export default function Home() {
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error("[LANDING] Session check error:", error);
+        }
+
+        if (mounted) {
+          setIsLoggedIn(!!user);
+          setUserEmail(user?.email ?? null);
+          setCheckingSession(false);
+        }
+      } catch (error) {
+        console.error("[LANDING] Unexpected session error:", error);
+
+        if (mounted) {
+          setIsLoggedIn(false);
+          setUserEmail(null);
+          setCheckingSession(false);
+        }
+      }
+    }
+
+    checkSession();
+
+    const supabase = createClient();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      setIsLoggedIn(!!session?.user);
+      setUserEmail(session?.user?.email ?? null);
+      setCheckingSession(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleSignOut() {
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
+      }
+
+      setIsLoggedIn(false);
+      setUserEmail(null);
+
+      window.location.replace("/");
+    } catch (error) {
+      console.error("[LANDING] Sign out error:", error);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-white text-zinc-950">
-      {/* NAVIGATION */}
+      {/* =========================================================
+          NAVIGATION
+      ========================================================== */}
       <nav className="sticky top-0 z-50 border-b border-zinc-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
           {/* Logo */}
-          <Link href="/" className="text-xl font-bold tracking-tight">
+          <Link
+            href="/"
+            className="text-xl font-bold tracking-tight"
+          >
             <span>We</span>
             <span className="text-indigo-600">Make</span>
             <span>Apps</span>
           </Link>
 
-          {/* Left-aligned menu */}
+          {/* Main navigation */}
           <div className="ml-12 hidden flex-1 items-center gap-8 text-sm font-medium text-zinc-500 md:flex">
             <a
               href="#how-it-works"
@@ -499,26 +582,75 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-4">
-            <Link
-              href="/signin"
-              className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
-            >
-              Sign in
-            </Link>
+          {/* =====================================================
+              RIGHT ACTIONS
 
-            <Link
-              href="/builder"
-              className="rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-zinc-800"
-            >
-              Start Building Free
-            </Link>
+              LOGGED OUT:
+                Sign in
+                Start Building Free
+
+              LOGGED IN:
+                Email
+                Dashboard
+                Sign out
+
+              IMPORTANT:
+              There is NO Start Building Free button when logged in.
+
+              Existing apps are accessed through:
+                Dashboard -> Continue building
+
+              New apps are created through:
+                Dashboard -> Create an app
+          ====================================================== */}
+          <div className="flex items-center gap-3">
+            {!checkingSession && isLoggedIn ? (
+              <>
+                {/* Logged-in user */}
+                <span className="hidden max-w-[180px] truncate text-sm text-zinc-500 lg:block">
+                  {userEmail}
+                </span>
+
+                <Link
+                  href="/dashboard"
+                  className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
+                >
+                  Dashboard
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : !checkingSession ? (
+              <>
+                {/* Logged-out user */}
+                <Link
+                  href="/signin"
+                  className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
+                >
+                  Sign in
+                </Link>
+
+                <Link
+                  href="/builder?new=1"
+                  className="rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-zinc-800"
+                >
+                  Start Building Free
+                </Link>
+              </>
+            ) : null}
           </div>
         </div>
       </nav>
 
-      {/* HERO */}
+      {/* =========================================================
+          HERO
+      ========================================================== */}
       <section className="overflow-hidden">
         <div className="mx-auto max-w-7xl px-6 pb-28 pt-20 lg:px-8 lg:pb-36 lg:pt-28">
           <div className="grid items-center gap-20 lg:grid-cols-[0.82fr_1.18fr]">
@@ -546,12 +678,15 @@ export default function Home() {
               </p>
 
               <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-                <Link
-                  href="/builder"
-                  className="rounded-full bg-zinc-950 px-7 py-4 text-center text-sm font-semibold text-white shadow-lg shadow-zinc-200 transition hover:-translate-y-0.5 hover:bg-zinc-800"
-                >
-                  Start Building Free →
-                </Link>
+                {/* Only logged-out visitors get this CTA */}
+                {!checkingSession && !isLoggedIn && (
+                  <Link
+                    href="/builder?new=1"
+                    className="rounded-full bg-zinc-950 px-7 py-4 text-center text-sm font-semibold text-white shadow-lg shadow-zinc-200 transition hover:-translate-y-0.5 hover:bg-zinc-800"
+                  >
+                    Start Building Free →
+                  </Link>
+                )}
 
                 <a
                   href="#how-it-works"
@@ -576,7 +711,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BRAND STATEMENT */}
+      {/* =========================================================
+          BRAND STATEMENT
+      ========================================================== */}
       <section className="border-y border-indigo-100 bg-indigo-50/50">
         <div className="mx-auto grid max-w-6xl items-center gap-8 px-6 py-12 md:grid-cols-[1fr_1px_1fr] lg:px-8">
           <div className="flex items-center gap-5">
@@ -603,7 +740,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* =========================================================
+          HOW IT WORKS
+      ========================================================== */}
       <section id="how-it-works">
         <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8">
           <div className="grid gap-12 lg:grid-cols-[240px_1fr]">
@@ -619,7 +758,10 @@ export default function Home() {
 
             <div className="grid gap-8 md:grid-cols-4">
               {steps.map((step, index) => (
-                <div key={step.number} className="relative">
+                <div
+                  key={step.number}
+                  className="relative"
+                >
                   {index < steps.length - 1 && (
                     <div className="absolute left-10 top-5 hidden w-full border-t border-dashed border-indigo-200 md:block" />
                   )}
@@ -648,7 +790,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FEATURES + PRICING */}
+      {/* =========================================================
+          FEATURES + PRICING
+      ========================================================== */}
       <section className="border-t border-zinc-100">
         <div className="mx-auto grid max-w-7xl gap-6 px-6 py-24 lg:grid-cols-2 lg:px-8">
           {/* Features */}
@@ -744,12 +888,25 @@ export default function Home() {
               </div>
             </div>
 
-            <Link
-              href="/builder"
-              className="mt-6 block rounded-full bg-zinc-950 px-6 py-4 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
-            >
-              Start Building Free
-            </Link>
+            {/* Only show Start Building to logged-out users */}
+            {!checkingSession && !isLoggedIn && (
+              <Link
+                href="/builder?new=1"
+                className="mt-6 block rounded-full bg-zinc-950 px-6 py-4 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                Start Building Free
+              </Link>
+            )}
+
+            {/* Logged-in users should use Dashboard */}
+            {!checkingSession && isLoggedIn && (
+              <Link
+                href="/dashboard"
+                className="mt-6 block rounded-full bg-zinc-950 px-6 py-4 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                Go to Dashboard →
+              </Link>
+            )}
 
             <p className="mt-3 text-center text-xs text-zinc-400">
               No credit card. No commitment.
@@ -758,7 +915,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CUSTOM DEVELOPMENT */}
+      {/* =========================================================
+          CUSTOM DEVELOPMENT
+      ========================================================== */}
       <section
         id="custom"
         className="overflow-hidden bg-[#090d24] text-white"
@@ -850,7 +1009,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FINAL CTA */}
+      {/* =========================================================
+          FINAL CTA
+      ========================================================== */}
       <section className="bg-indigo-50">
         <div className="mx-auto max-w-4xl px-6 py-24 text-center">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">
@@ -866,16 +1027,31 @@ export default function Home() {
             want to save your progress.
           </p>
 
-          <Link
-            href="/builder"
-            className="mt-9 inline-flex rounded-full bg-zinc-950 px-8 py-4 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-800"
-          >
-            Start Building Free →
-          </Link>
+          {/* Logged out = start building */}
+          {!checkingSession && !isLoggedIn && (
+            <Link
+              href="/builder?new=1"
+              className="mt-9 inline-flex rounded-full bg-zinc-950 px-8 py-4 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-800"
+            >
+              Start Building Free →
+            </Link>
+          )}
+
+          {/* Logged in = dashboard */}
+          {!checkingSession && isLoggedIn && (
+            <Link
+              href="/dashboard"
+              className="mt-9 inline-flex rounded-full bg-zinc-950 px-8 py-4 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-zinc-800"
+            >
+              Go to Dashboard →
+            </Link>
+          )}
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* =========================================================
+          FOOTER
+      ========================================================== */}
       <footer className="border-t border-zinc-100 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
           <p>
@@ -891,15 +1067,24 @@ export default function Home() {
           </p>
 
           <div className="flex gap-5">
-            <a href="#" className="hover:text-zinc-950">
+            <a
+              href="#"
+              className="hover:text-zinc-950"
+            >
               Privacy
             </a>
 
-            <a href="#" className="hover:text-zinc-950">
+            <a
+              href="#"
+              className="hover:text-zinc-950"
+            >
               Terms
             </a>
 
-            <a href="#" className="hover:text-zinc-950">
+            <a
+              href="#"
+              className="hover:text-zinc-950"
+            >
               Contact
             </a>
           </div>
